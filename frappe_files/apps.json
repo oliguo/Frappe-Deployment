@@ -1,0 +1,34 @@
+[
+    {
+        "url": "https://github.com/frappe/erpnext",
+        "branch": "version-15"
+    },
+    {
+        "url": "https://github.com/frappe/payments",
+        "branch": "version-15"
+    },
+    {
+        "url": "https://github.com/frappe/hrms",
+        "branch": "version-15"
+    },
+    {
+        "url": "https://github.com/frappe/crm",
+        "branch": "main"
+    },
+    {
+        "url": "https://github.com/frappe/helpdesk",
+        "branch": "main"
+    },
+    {
+        "url": "https://github.com/frappe/drive",
+        "branch": "main"
+    },
+    {
+        "url": "https://github.com/The-Commit-Company/raven",
+        "branch": "main"
+    },
+    {
+        "url": "https://github.com/shridarpatil/frappe_whatsapp",
+        "branch": "master"
+    }
+]

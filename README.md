@@ -1,5 +1,5 @@
 # Frappe-Deployment
-All in one deployment included ERPNext, CRM, HRMS, Payments, Drive, HelpDesk, Whatsapp via Docker way
+All in one deployment included ERPNext, CRM, HRMS, Payments, Drive, HelpDesk, Whatsapp, Raven via Docker way
 
 # Enviorment
 ```
@@ -97,3 +97,6 @@ App raven already installed
 App payments already installed
 App frappe_whatsapp already installed
 ```
+
+## Photo Reference 
+![Apps](screens_ref/apps.png)

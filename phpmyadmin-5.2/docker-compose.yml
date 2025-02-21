@@ -1,0 +1,21 @@
+services:
+  phpmyadmin:
+    networks:
+      - frappe_network
+    ports:
+      - "8900:80"
+    container_name: phpmyadmin-5.2
+    restart: always
+    environment:
+      - PMA_ARBITRARY=1
+      - UPLOAD_LIMIT=300M
+    volumes:
+      - "./config.user.inc.php:/etc/phpmyadmin/config.user.inc.php"
+    image: "phpmyadmin/phpmyadmin:5.2"
+    labels:
+      - "traefik.enable=false"
+    external_links:
+      - mysql:frappe_docker-db-1
+networks:
+  frappe_network:
+    external: true

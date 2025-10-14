@@ -62,7 +62,7 @@ sudo docker build \
         --build-arg=FRAPPE_PATH=https://github.com/frappe/frappe \
         --build-arg=FRAPPE_BRANCH=version-15 \
         --build-arg=APPS_JSON_BASE64=$APPS_JSON_BASE64 \
-        --tag=frappe-all:1.0.1 \
+        --tag=frappe-all:1.0.0 \
         --file=images/layered/Containerfile .
 
 sudo docker compose -f pwd-custom.yml up -d

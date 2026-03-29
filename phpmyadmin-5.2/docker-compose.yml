@@ -15,7 +15,7 @@ services:
     labels:
       - "traefik.enable=false"
     external_links:
-      - mysql:frappe_docker-db-1
+      - frappe-db:frappe-db
 networks:
   frappe_network:
     external: true

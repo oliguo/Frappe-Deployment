@@ -1,8 +1,9 @@
 services:
-  backend:
+  frappe-backend:
+    container_name: frappe-backend
     image: frappe-all:1.0.0
     networks:
-      - frappe_docker_network
+      - frappe_network
     deploy:
       restart_policy:
         condition: on-failure
@@ -10,17 +11,21 @@ services:
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
     environment:
-      DB_HOST: db
+      DB_HOST: frappe-db
       DB_PORT: "3306"
       MYSQL_ROOT_PASSWORD: admin
       MARIADB_ROOT_PASSWORD: admin
+      GUNICORN_TIMEOUT: 600
+    links:
+      - frappe-db:frappe-db
     labels:
       - "traefik.enable=false"
 
-  configurator:
+  frappe-configurator:
+    container_name: frappe-configurator
     image: frappe-all:1.0.0
     networks:
-      - frappe_docker_network
+      - frappe_network
     deploy:
       restart_policy:
         condition: none
@@ -37,21 +42,26 @@ services:
         bench set-config -g redis_socketio "redis://$$REDIS_QUEUE";
         bench set-config -gp socketio_port $$SOCKETIO_PORT;
     environment:
-      DB_HOST: db
+      DB_HOST: frappe-db
       DB_PORT: "3306"
-      REDIS_CACHE: redis-cache:6379
-      REDIS_QUEUE: redis-queue:6379
+      REDIS_CACHE: frappe-redis-cache:6379
+      REDIS_QUEUE: frappe-redis-queue:6379
       SOCKETIO_PORT: "9000"
+    links:
+      - frappe-db:frappe-db
+      - frappe-redis-cache:frappe-redis-cache
+      - frappe-redis-queue:frappe-redis-queue
     volumes:
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
     labels:
       - "traefik.enable=false"
 
-  create-site:
+  frappe-create-site:
+    container_name: frappe-create-site
     image: frappe-all:1.0.0
     networks:
-      - frappe_docker_network
+      - frappe_network
     deploy:
       restart_policy:
         condition: none
@@ -63,9 +73,9 @@ services:
       - -c
     command:
       - >
-        wait-for-it -t 120 db:3306;
-        wait-for-it -t 120 redis-cache:6379;
-        wait-for-it -t 120 redis-queue:6379;
+        wait-for-it -t 120 frappe-db:3306;
+        wait-for-it -t 120 frappe-redis-cache:6379;
+        wait-for-it -t 120 frappe-redis-queue:6379;
         export start=`date +%s`;
         until [[ -n `grep -hs ^ sites/common_site_config.json | jq -r ".db_host // empty"` ]] && \
           [[ -n `grep -hs ^ sites/common_site_config.json | jq -r ".redis_cache // empty"` ]] && \
@@ -80,20 +90,23 @@ services:
         done;
         echo "sites/common_site_config.json found";
         bench new-site --mariadb-user-host-login-scope='%' --admin-password=admin --db-root-username=root --db-root-password=admin --install-app erpnext --set-default frontend;
-        bench --site frontend install-app crm;
-        bench --site frontend install-app drive;
-        bench --site frontend install-app helpdesk;
-        bench --site frontend install-app hrms;
-        bench --site frontend install-app raven;
-        bench --site frontend install-app payments;
-        bench --site frontend install-app frappe_whatsapp;
+        bench --site frontend set-config host_name https://sub.yourdomain.com;
+        bench --site frontend set-config dns_multitenant on;
+        bench --site frontend set-config force_https 1;
+        bench --site frontend clear-cache;
+        echo "done";
+    links:
+      - frappe-db:frappe-db
+      - frappe-redis-cache:frappe-redis-cache
+      - frappe-redis-queue:frappe-redis-queue
     labels:
       - "traefik.enable=false"
 
-  db:
+  frappe-db:
+    container_name: frappe-db
     image: mariadb:10.6
     networks:
-      - frappe_docker_network
+      - frappe_network
     healthcheck:
       test: mysqladmin ping -h localhost --password=admin
       interval: 1s
@@ -114,23 +127,24 @@ services:
     labels:
       - "traefik.enable=false"
 
-  frontend:
+  frappe-frontend:
+    container_name: frappe-frontend
     image: frappe-all:1.0.0
     networks:
-      - frappe_docker_network
+      - frappe_network
     depends_on:
-      - websocket
+      - frappe-websocket
     deploy:
       restart_policy:
         condition: on-failure
     command:
       - nginx-entrypoint.sh
     environment:
-      BACKEND: backend:8000
+      BACKEND: frappe-backend:8000
       FRAPPE_SITE_NAME_HEADER: frontend
-      SOCKETIO: websocket:9000
-      UPSTREAM_REAL_IP_ADDRESS: 127.0.0.1
-      UPSTREAM_REAL_IP_HEADER: X-Forwarded-For
+      SOCKETIO: frappe-websocket:9000
+      UPSTREAM_REAL_IP_ADDRESS: 0.0.0.0/0 
+      UPSTREAM_REAL_IP_HEADER: X-Forwarded-Proto
       UPSTREAM_REAL_IP_RECURSIVE: "off"
       PROXY_READ_TIMEOUT: 120
       CLIENT_MAX_BODY_SIZE: 50m
@@ -151,11 +165,17 @@ services:
       - "traefik.http.services.frappe-all-frontend-https-service.loadbalancer.server.port=8080"
       - "traefik.http.routers.frappe-all-frontend-https.tls=true"
       - "traefik.http.routers.frappe-all-frontend-https.tls.certresolver=webResolver"
+      - "traefik.http.middlewares.frappe-headers.headers.customrequestheaders.X-Forwarded-Proto=https"
+      - "traefik.http.routers.frappe-all-frontend-https.middlewares=frappe-headers"
+    links:
+      - frappe-backend:frappe-backend
+      - frappe-websocket:frappe-websocket
 
-  queue-long:
+  frappe-queue-long:
+    container_name: frappe-queue-long
     image: frappe-all:1.0.0
     networks:
-      - frappe_docker_network
+      - frappe_network
     deploy:
       restart_policy:
         condition: on-failure
@@ -167,13 +187,20 @@ services:
     volumes:
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
+    environment:
+      FRAPPE_REDIS_CACHE: redis://frappe-redis-cache:6379
+      FRAPPE_REDIS_QUEUE: redis://frappe-redis-queue:6379
+    links:
+      - frappe-redis-cache:frappe-redis-cache
+      - frappe-redis-queue:frappe-redis-queue
     labels:
       - "traefik.enable=false"
 
-  queue-short:
+  frappe-queue-short:
+    container_name: frappe-queue-short
     image: frappe-all:1.0.0
     networks:
-      - frappe_docker_network
+      - frappe_network
     deploy:
       restart_policy:
         condition: on-failure
@@ -185,13 +212,20 @@ services:
     volumes:
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
+    environment:
+      FRAPPE_REDIS_CACHE: redis://frappe-redis-cache:6379
+      FRAPPE_REDIS_QUEUE: redis://frappe-redis-queue:6379
+    links:
+      - frappe-redis-cache:frappe-redis-cache
+      - frappe-redis-queue:frappe-redis-queue
     labels:
       - "traefik.enable=false"
 
-  redis-queue:
+  frappe-redis-queue:
+    container_name: frappe-redis-queue
     image: redis:6.2-alpine
     networks:
-      - frappe_docker_network
+      - frappe_network
     deploy:
       restart_policy:
         condition: on-failure
@@ -200,20 +234,22 @@ services:
     labels:
       - "traefik.enable=false"
 
-  redis-cache:
+  frappe-redis-cache:
+    container_name: frappe-redis-cache
     image: redis:6.2-alpine
     networks:
-      - frappe_docker_network
+      - frappe_network
     deploy:
       restart_policy:
         condition: on-failure
     labels:
       - "traefik.enable=false"
 
-  scheduler:
+  frappe-scheduler:
+    container_name: frappe-scheduler
     image: frappe-all:1.0.0
     networks:
-      - frappe_docker_network
+      - frappe_network
     deploy:
       restart_policy:
         condition: on-failure
@@ -226,16 +262,23 @@ services:
     labels:
       - "traefik.enable=false"
 
-  websocket:
+  frappe-websocket:
+    container_name: frappe-websocket
     image: frappe-all:1.0.0
     networks:
-      - frappe_docker_network
+      - frappe_network
     deploy:
       restart_policy:
         condition: on-failure
     command:
       - node
       - /home/frappe/frappe-bench/apps/frappe/socketio.js
+    environment:
+      FRAPPE_REDIS_CACHE: redis://frappe-redis-cache:6379
+      FRAPPE_REDIS_QUEUE: redis://frappe-redis-queue:6379
+    links:
+      - frappe-redis-cache:frappe-redis-cache
+      - frappe-redis-queue:frappe-redis-queue
     volumes:
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
@@ -269,5 +312,6 @@ volumes:
       o: bind
 
 networks:
-  frappe_docker_network:
+  frappe_network:
     external: true
+

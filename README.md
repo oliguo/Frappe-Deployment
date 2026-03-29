@@ -60,12 +60,33 @@ export APPS_JSON_BASE64=$(base64 -w 0 apps.json)
 
 sudo docker build \
         --build-arg=FRAPPE_PATH=https://github.com/frappe/frappe \
-        --build-arg=FRAPPE_BRANCH=version-15 \
+        --build-arg=FRAPPE_BRANCH=version-16 \
         --build-arg=APPS_JSON_BASE64=$APPS_JSON_BASE64 \
         --tag=frappe-all:1.0.0 \
         --file=images/layered/Containerfile .
 
 sudo docker compose -f pwd-custom.yml up -d
+```
+## Step 7, check the logs of the container `frappe-create-site` to ensure the site created successfully and all apps installed successfully
+```
+sudo docker logs -f frappe-create-site
+```
+## Step 8, access the site via domain name and complete the setup wizard
+```
+http://sub.yourdomain.com
+```
+## Step 9, go to install the apps via bench command line of frappe-backend container
+```
+sudo docker exec -it frappe-backend /bin/sh 
+$ bench --site frontend install-app crm;
+bench --site frontend install-app drive;
+bench --site frontend install-app telephony;
+bench --site frontend install-app helpdesk;
+bench --site frontend install-app hrms;
+bench --site frontend install-app raven;
+bench --site frontend install-app payments;
+bench --site frontend install-app frappe_whatsapp;
+exit;
 ```
 
 ## Stopped and remove all
@@ -76,8 +97,8 @@ sudo rm -rf db-data logs sites redis-queue-data
 ```
 
 ## There are two containers to be informed 
-`frappe_dev-configurator-1` will create some frappe files and settings located in `sites` folder, it will be stopped normally.
-`frappe_dev-create-site-1` will check the config files what configurator set, and then go to connect the database, redis , and go to install the applications one by one. It will be stopped normally
+`frappe-configurator` will create some frappe files and settings located in `sites` folder, it will be stopped normally.
+`frappe-create-site` will check the config files what configurator set, and then go to connect the database, redis , and go to install the applications one by one. It will be stopped normally
 It should output the logs correctly like below if you restart it again
 ```
 wait-for-it: waiting 120 seconds for db:3306

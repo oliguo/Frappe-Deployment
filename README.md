@@ -3,7 +3,7 @@ All in one deployment included ERPNext, CRM, HRMS, Payments, Drive, HelpDesk, Wh
 
 # Enviorment
 ```
-OS: Ubuntu 22.04, Installed Docker
+OS: Ubuntu 24.04, Installed Docker
 ```
 
 # Steps
@@ -73,19 +73,19 @@ sudo docker logs -f frappe-create-site
 ```
 ## Step 8, access the site via domain name and complete the setup wizard
 ```
-http://sub.yourdomain.com
+http://erp.example.com
 ```
 ## Step 9, go to install the apps via bench command line of frappe-backend container
 ```
 sudo docker exec -it frappe-backend /bin/sh 
-$ bench --site frontend install-app crm;
-bench --site frontend install-app drive;
-bench --site frontend install-app telephony;
-bench --site frontend install-app helpdesk;
-bench --site frontend install-app hrms;
-bench --site frontend install-app raven;
-bench --site frontend install-app payments;
-bench --site frontend install-app frappe_whatsapp;
+$ bench --site erp.example.com install-app crm;
+bench --site erp.example.com install-app drive;
+bench --site erp.example.com install-app telephony;
+bench --site erp.example.com install-app helpdesk;
+bench --site erp.example.com install-app hrms;
+bench --site erp.example.com install-app raven;
+bench --site erp.example.com install-app payments;
+bench --site erp.example.com install-app frappe_whatsapp;
 exit;
 ```
 
